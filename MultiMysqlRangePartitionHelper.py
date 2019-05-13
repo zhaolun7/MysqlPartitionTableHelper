@@ -205,7 +205,8 @@ def main(argv=None):
         if threading.activeCount() != 1:
             list_t = threading.enumerate()
             for t in list_t:
-                logger.info('[WAIT SQL] wait query:%s', t.sql)
+                if t.getName() != 'MainThread':
+                    logger.info('[WAIT SQL] wait query:%s', t.sql)
     logger.info('script exit.')
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
