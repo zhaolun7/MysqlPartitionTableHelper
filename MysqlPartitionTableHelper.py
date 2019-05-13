@@ -137,7 +137,7 @@ def managePartition(map_param, str_tasktime, action):
 			else:
 				print getCurTime(), "skip drop, table",map_param['TABLE'],'partition',str_deltime,'[00~23] not exits.'
 				return 0
-	if sql is not None or sql != '':
+	if sql is not None and sql != '':
 		print getCurTime(), '[EXECUTE]',sql
 		retcode,msg = excuteSql(map_param,sql)
 		print getCurTime(), '[retcode:',retcode,'\tmsg=>',msg,']'
