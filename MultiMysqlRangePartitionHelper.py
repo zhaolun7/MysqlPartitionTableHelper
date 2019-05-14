@@ -130,13 +130,15 @@ def managePartition(query_id, map_param, str_tasktime, action, logger):
                 return None,None
         elif action == 'TRUNCATE':
             if str_deltime+'00' in all_partitions:
-                sql = SQL_TRUNCATE % (map_param.get('TABLE'), ','.join([ '\n'*(1 if x%6==0 else 0)+ ' '*(10 if x%6==0 else 1) + 'p_' + str_deltime + str(x).zfill(2) for x in range(0,24)]))    
+                sql = SQL_TRUNCATE % (map_param.get('TABLE'), ','.join([ '\n'*(1 if x%6==0 else 0)+ ' '*(10 if x%6==0 else 1) + 'p_' + str_deltime + str(x).zfill(2) for x in range(0,24)]))
+                sql_print = SQL_TRUNCATE % (map_param.get('TABLE'), str_deltime+'[00~23]')
             else:
                 logger.info('[SKIP %s](%s) skip truncate table %s partition %s[00~23] not exits.', action, query_id, map_param['TABLE'],str_deltime)
                 return None,None
         elif action == 'DROP':
             if str_deltime+'00' in all_partitions:
                 sql = SQL_DROP % (map_param.get('TABLE'), ','.join([ '\n'*(1 if x%6==0 else 0)+ ' '*(10 if x%6==0 else 1) + 'p_' + str_deltime + str(x).zfill(2) for x in range(0,24)]))
+                sql_print = SQL_DROP % (map_param.get('TABLE'), str_deltime+'[00~23]')
             else:
                 logger.info('[SKIP %s](%s) skip drop table %s partition %s[00~23] not exits.', action, query_id, map_param['TABLE'],str_deltime)
                 return None,None
@@ -192,7 +194,7 @@ def main(argv=None):
         if list_maps is None:
             logger.error('Error when parse section: %s', each_section)
             continue
-        #logger.info('-----------------------SECTION:%s TYPE:%s-----------------------',each_section,list_maps[0]['TYPE'])
+        
         tableCnt = 0
         for map_param in list_maps:
             t = SingleTableActionThread(each_section + "-%03d" % tableCnt, map_param, taskTime, logger)
