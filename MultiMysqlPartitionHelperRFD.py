@@ -8,7 +8,7 @@ WLCM_INFO = "welcome to\n __  __                 _ ____            _   _ _   _  
 import os,sys,commands,re,time,threading,logging
 from datetime import datetime, timedelta
 from optparse import OptionParser
-SERVER_CONNENT = "mysql -h%(HOSTIP)s -P%(PORT)s -u%(USER)s -p%(PASSWORD)s -D%(DATABASE)s --default-character-set=utf8 -N -e '%(SQL)s' "
+SERVER_CONNENT = "mysql -h%(HOSTIP)s -P%(PORT)s -u%(USER)s -p%(PASSWORD)s -D%(DATABASE)s --default-character-set=utf8 -A -N -e '%(SQL)s' "
 SQL_TRUNCATE   = "alter table %s truncate partition %s"
 SQL_DROP       = "alter table %s drop partition %s"
 SQL_ADD        = "alter table %s add partition (%s)"
@@ -145,11 +145,16 @@ class SingleTableActionThread (threading.Thread):
         self.map_param = map_param
         self.taskTime = taskTime
         self.logger = logger
+        self.sql = None 
+        self.sql_print = None
     def run(self):
         list_actions = self.map_param.pop("ACTION")
         for action in list_actions:
+            if action == 'ADD':#先删分区,然后一次加七天的分区
+                continue
             sql,sql_print = managePartition(self.query_id,self.map_param,self.taskTime,action,self.logger)
             self.sql = sql
+            self.sql_print = sql_print
             query_id,logger = self.query_id,self.logger
             if sql is not None and sql != '':
                 if sql_print != None:
@@ -164,15 +169,38 @@ class SingleTableActionThread (threading.Thread):
                     logger.info('[SUCC %s](%s) [RETCODE:%d, msg=> %s][usedTime:%ss]', action, query_id, retcode, msg,usetime)
                 else:
                     logger.error('[FAIL %s](%s) [RETCODE:%d, msg=> %s][usedTime:%ss],sql is: %s', action, query_id, retcode, msg,usetime, self.sql)
-        
+        if 'ADD' in list_actions:
+            for day_num in range(7):
+                tmp_taskTime = ''
+                with THREAD_LOCK:
+                    tmp_taskTime = (datetime.strptime(self.taskTime, '%Y%m%d') + timedelta(days = day_num)).strftime('%Y%m%d')
+                sql,sql_print = managePartition(self.query_id,self.map_param,tmp_taskTime,action,self.logger)
+                self.sql = sql
+                self.sql_print = sql_print
+                query_id,logger = self.query_id,self.logger
+                if sql is not None and sql != '':
+                    if sql_print != None:
+                        logger.info('[EXEC %s](%s) %s', action, query_id, sql_print)
+                    else:
+                        logger.info('[EXEC %s](%s) %s', action, query_id, sql)
+                    starttime = time.time()
+                    retcode,msg = excuteSql(self.map_param,sql)
+                    endtime = time.time()
+                    usetime = endtime - starttime
+                    if retcode == 0:
+                        logger.info('[SUCC %s](%s) [RETCODE:%d, msg=> %s][usedTime:%ss]', action, query_id, retcode, msg,usetime)
+                    else:
+                        logger.error('[FAIL %s](%s) [RETCODE:%d, msg=> %s][usedTime:%ss],sql is: %s', action, query_id, retcode, msg,usetime, self.sql)
+                        break
+
 
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, 
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        filename=os.path.join(os.path.split(os.path.realpath(__file__))[0],'crond.log'),
+                        filename=os.path.join(os.path.split(os.path.realpath(__file__))[0],'../log/crond.log'),
                         format='%(asctime)s [%(levelname)s] %(message)s')
     logger = logging.getLogger(__name__)
-    taskTime = datetime.now().strftime('%Y%m%d') 
+    taskTime = (datetime.now() - timedelta(days = 1)).strftime('%Y%m%d')
     logger.info('%s',WLCM_INFO)
     
     optParser = OptionParser()

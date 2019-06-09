@@ -3,7 +3,7 @@
 # the script help managing partitioned table by reading `table.conf`, it should be run with crond.
 import os,sys,commands,re,ConfigParser,time,threading,logging
 from datetime import datetime, timedelta
-SERVER_CONNENT = "mysql -h%(HOSTIP)s -P%(PORT)s -u%(USER)s -p%(PASSWORD)s -D%(DATABASE)s --default-character-set=utf8 -N -e '%(SQL)s' "
+SERVER_CONNENT = "mysql -h%(HOSTIP)s -P%(PORT)s -u%(USER)s -p%(PASSWORD)s -D%(DATABASE)s --default-character-set=utf8 -A -N -e '%(SQL)s' "
 SQL_TRUNCATE   = "alter table %s truncate partition %s"
 SQL_DROP       = "alter table %s drop partition %s"
 SQL_ADD        = "alter table %s add partition (%s)"
@@ -152,12 +152,15 @@ class SingleTableActionThread (threading.Thread):
         self.map_param = map_param
         self.taskTime = taskTime
         self.logger = logger
+        self.sql = None 
+        self.sql_print = None
     def run(self):
         list_actions = self.map_param.pop("ACTION")
         starttime = time.time()
         for action in list_actions:
             sql,sql_print = managePartition(self.query_id,self.map_param,self.taskTime,action,self.logger)
             self.sql = sql
+            self.sql_print = sql_print
             query_id,logger = self.query_id,self.logger
             if sql is not None and sql != '':
                 if sql_print != None:
@@ -208,7 +211,10 @@ def main(argv=None):
             list_t = threading.enumerate()
             for t in list_t:
                 if t.getName() != 'MainThread':
-                    logger.info('[WAIT SQL] wait query:%s', t.sql)
+                    if t.sql_print is not None:
+                        logger.info('[WAIT SQL] wait query:%s', t.sql_print)
+                    else:
+                        logger.info('[WAIT SQL] wait query:%s', t.sql)
     logger.info('script exit.')
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
